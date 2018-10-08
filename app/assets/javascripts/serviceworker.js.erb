@@ -1,0 +1,62 @@
+var CACHE_VERSION = "v2";
+var ASSETS_CACHE_NAME = CACHE_VERSION + ":rails-pwa-assets";
+var DATA_CACHE_NAME = CACHE_VERSION + ":rails-pwa-data"
+
+self.addEventListener("install", function(event) {
+  console.log("[Service Worker]", "Installing...");
+
+  event.waitUntil(
+    caches.open(ASSETS_CACHE_NAME).then(function(cache) {
+      cache.addAll([
+        '/offline.html'
+      ]);
+    }).then(function() {
+      console.log("[Service Worker]", "Installed!");
+    })
+  );
+});
+
+self.addEventListener("fetch", function(event) {
+  event.respondWith(
+    fetch(event.request).then(function(response) {
+      var clone = response.clone();
+
+      caches.open(DATA_CACHE_NAME).then(function(cache) {
+        cache.put(event.request, clone);
+      });
+      return response;
+    }).catch(function() {
+      return caches.match(event.request).then(function(cache) {
+        if (cache) {
+          return cache;
+        }
+
+        return caches.match("/offline.html");
+      });
+    })
+  );
+});
+
+self.addEventListener("activate", function(event) {
+  console.log("[Service Worker]", "Activating...");
+  event.waitUntil(
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.filter(function(cacheName) {
+          return cacheName.indexOf(CACHE_VERSION) === -1;
+        }).map(function(cacheName) {
+          caches.delete(cacheName);
+        })
+      )
+    }).then(function() {
+      console.log("[Service Worker]", "Activated");
+    })
+  );
+});
+
+self.addEventListener("push", function(event) {
+  console.log("PushEvent", event);
+});
+self.addEventListener("message", function(event) {
+  console.log("MessageEvent", event);
+});
